@@ -52,6 +52,8 @@ public:
 	bool AddItem(UInventoryItem* Item, int32 Count);
 	bool Remove(FName ID);
 
+	int32 GetAmmo(EAmmunitionType AmmoType) const;
+
 protected:
 	UPROPERTY(EditAnywhere, Category = "Items")
 	TArray<FInventorySlot> InvSlots;

@@ -23,9 +23,18 @@ public:
 	void InitItemSlot(FInventorySlot& Slot);
 	void UpdateView(); // used in FInventorySlot callback
 	void SetItemIcon(UTexture2D* Icon);
+
 	bool IsAmmo() const {
 		UAmmoItem* Ptr = Cast<UAmmoItem>(LinkedSlot->Item);
 		return IsValid(Ptr);
+	}
+
+	EAmmunitionType GetAmmoType() const {
+		UAmmoItem* Ptr = Cast<UAmmoItem>(LinkedSlot->Item);
+		if (!IsValid(Ptr))
+			return EAmmunitionType::None;
+
+		return Ptr->GetAmmoType();
 	}
 
 	void SetCountText(int32 Count);

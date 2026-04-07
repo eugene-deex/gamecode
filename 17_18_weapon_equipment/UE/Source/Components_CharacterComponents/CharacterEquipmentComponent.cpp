@@ -15,6 +15,7 @@
 #include "Characters/Controllers/BasePlayerController.h"
 #include "Inventory/Items/InventoryItem.h"
 #include "Utils/DeexDataTableUtils.h"
+#include "CharacterInventoryComponent.h"
 
 UCharacterEquipmentComponent::UCharacterEquipmentComponent()
 {
@@ -26,7 +27,6 @@ void UCharacterEquipmentComponent::GetLifetimeReplicatedProps(TArray<FLifetimePr
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(UCharacterEquipmentComponent, CurrentEquippedSlot);
-	DOREPLIFETIME(UCharacterEquipmentComponent, AmmunitionArray);
 	DOREPLIFETIME(UCharacterEquipmentComponent, ItemsArray);
 }
 
@@ -138,9 +138,6 @@ void UCharacterEquipmentComponent::CreateLoadout()
 		//}
 	}
 
-	// give the character ammo on start
-	AmmunitionArray.AddZeroed((uint32)EAmmunitionType::MAX);
-
 	if (isPlayerGetAmmonOnStart)
 	{
 		const UEnum* EnumPtr = StaticEnum<EAmmunitionType>();
@@ -198,7 +195,6 @@ void UCharacterEquipmentComponent::ReloadAmmoInCurrentWeapon(uint32 NumberOfAmmo
 	}
 
 	int32 AmmoType = (int32) CurrentEquippedWeapon->GetAmmoType();
-	AmmunitionArray[AmmoType] -= ReloadedAmmo;
 	CurrentEquippedWeapon->SetAmmo(CurrentAmmo + ReloadedAmmo);
 
 	FName WeaponID = CurrentEquippedWeapon->GetDataTableID();
@@ -214,7 +210,7 @@ void UCharacterEquipmentComponent::ReloadAmmoInCurrentWeapon(uint32 NumberOfAmmo
 
 	if (bCheckIsFull)
 	{
-		AvailAmmo = AmmunitionArray[(uint32)CurrentEquippedWeapon->GetAmmoType()];
+		AvailAmmo = GetAmmo(CurrentEquippedWeapon->GetAmmoType());
 		bool bIsFullyReloaded = CurrentEquippedWeapon->GetAmmo() == CurrentEquippedWeapon->GetMaxAmmo();
 
 		if (AvailAmmo == 0 || bIsFullyReloaded)
@@ -280,7 +276,7 @@ void UCharacterEquipmentComponent::OnCurrentWeaponAmmoChanged(uint32 NewAmmo)
 		if (IsValid(RangeWeapon))
 		{
 			int32 AmmoType = (uint32)RangeWeapon->GetAmmoType() - 1;
-			OnCurrentWeaponAmmoChangedEvent.Broadcast(NewAmmo, AmmunitionArray[AmmoType]);
+			OnCurrentWeaponAmmoChangedEvent.Broadcast(NewAmmo, GetAmmo((EAmmunitionType) AmmoType));
 		}
 	}
 }
@@ -290,13 +286,13 @@ uint32 UCharacterEquipmentComponent::GetAvailableAmmoForCurWeapon() const
 // TODO: it returns first we have, not the active selected weapon
 	ARangeWeaponItem* RangeWeapon = GetCurrentRangeWeapon();
 	if (IsValid(RangeWeapon))
-		return AmmunitionArray[(uint32)RangeWeapon->GetAmmoType()];
+		return GetAmmo(RangeWeapon->GetAmmoType());
 	
 	if (IsValid(CurrentThrowable))
-		return AmmunitionArray[(uint32)EEquipableItemType::Throwable];
+		return GetAmmo(EAmmunitionType::Grenades);
 	
 	if (IsValid(CurrentMeleeWeapon))
-		return AmmunitionArray[(uint32)EEquipableItemType::Melee];
+		return 1;
 
 	return -1;
 }
@@ -322,6 +318,11 @@ uint32 UCharacterEquipmentComponent::GetCurrentAmmoByWeaponType(TSubclassOf<AEqu
 	}
 
 	return -1;
+}
+
+int32 UCharacterEquipmentComponent::GetAmmo(EAmmunitionType AmmoType) const
+{
+	return CachedChar->GetInventoryComp()->GetAmmo(AmmoType);
 }
 
 EAmmunitionType UCharacterEquipmentComponent::GetAmmoTypeByWeaponType(TSubclassOf<AEquipableItem> WeaponClass) const
@@ -389,14 +390,6 @@ bool UCharacterEquipmentComponent::AddEquipmentItemToSlot(const TSubclassOf<AEqu
 		SpawnedItem = Item;
 	}
 
-	// TODO: AmmunitionArray depends on ammo in inventory
-	//else if(ItemObj->IsA<ARangeWeaponItem>()) {
-
-	//	ARangeWeaponItem* Weapon = StaticCast<ARangeWeaponItem*>(ItemObj); // Static because the type is 100% ARangeWeaponItem, faster than Cast
-	//	int32 AmmoSlotIndex = (int32) Weapon->GetAmmoType();
-	//	AmmunitionArray[SlotIndex] = Weapon->GetMaxAmmo();
-	//}
-
 	return true;
 }
 
@@ -441,70 +434,34 @@ bool UCharacterEquipmentComponent::IsViewVisible() const
 
 void UCharacterEquipmentComponent::AddAmmo(EAmmunitionType AmmoType, uint32 Count, FName WeaponID)
 {
-	if ((uint32) AmmoType == 0u || (uint32) AmmoType == TNumericLimits<uint32>::Max() || !MaxAmunitionAmount.Contains(AmmoType))
-		return;
-	
-	if (!AmmunitionArray.IsValidIndex((uint32)AmmoType))
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red,
-			FString::Printf(TEXT("idi nahui: type %d"), (uint32)AmmoType));
-		return;
-	}
+	//if ((uint32) AmmoType == 0u || (uint32) AmmoType == TNumericLimits<uint32>::Max() || !MaxAmunitionAmount.Contains(AmmoType))
+	//	return;
+	//
+	//int32 NewValue = GetAmmo(AmmoType) + Count;
+	//AmmunitionArray[(uint32)AmmoType] = FMath::Clamp(NewValue, 0, MaxAmunitionAmount[AmmoType]);
 
-	int32 NewValue = AmmunitionArray[(uint32)AmmoType] + Count;
-	AmmunitionArray[(uint32)AmmoType] = FMath::Clamp(NewValue, 0, MaxAmunitionAmount[AmmoType]);
-
-	FName TypeName = StaticEnum<EAmmunitionType>()->GetNameByIndex((uint32)AmmoType);
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Purple, 
-		FString::Printf(TEXT("AddAmmo: %d added to type %s, total %d"),
-		Count, *TypeName.ToString(), NewValue));
+	//FName TypeName = StaticEnum<EAmmunitionType>()->GetNameByIndex((uint32)AmmoType);
+	//GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Purple, 
+	//	FString::Printf(TEXT("AddAmmo: %d added to type %s, total %d"),
+	//	Count, *TypeName.ToString(), NewValue));
 
 	if (OnAmmoAddedEvent.IsBound())
 	{
 		TSubclassOf<AEquipableItem> WeaponClass = UCharacterEquipmentComponent::GetWeaponClassByAmmoType(AmmoType);
 		if(WeaponClass)
-			OnAmmoAddedEvent.Broadcast(WeaponClass, AmmunitionArray[(uint32)AmmoType], GetCurrentAmmoByWeaponType(WeaponClass));
+			OnAmmoAddedEvent.Broadcast(WeaponClass, GetAmmo(AmmoType), GetCurrentAmmoByWeaponType(WeaponClass));
 
 		if (UpdateInventoryEvent.IsBound())
-		{
 			UpdateInventoryEvent.Broadcast(WeaponID, (int32) AmmoType, Count, true);
-		}
 	}
 }
-
-//void UCharacterEquipmentComponent::RemoveAmmo(EAmmunitionType AmmoType, uint32 Count, TSubclassOf<APickableItem> PickableActor)
-//{
-//	if (!AmmunitionArray.IsValidIndex((uint32)AmmoType))
-//		return;
-//
-//	int32 NewValue = AmmunitionArray[(uint32)AmmoType] - Count;
-//	AmmunitionArray[(uint32)AmmoType] = FMath::Clamp(NewValue, 0, MaxAmunitionAmount[AmmoType]);
-//
-//	FName TypeName = StaticEnum<EAmmunitionType>()->GetNameByIndex((uint32)AmmoType);
-//	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Purple,
-//		FString::Printf(TEXT("RemoveAmmo: %d removed from type %s, total %d"),
-//			Count, *TypeName.ToString(), NewValue));
-//
-//	if (OnAmmoRemovedEvent.IsBound())
-//	{
-//		TSubclassOf<AEquipableItem> WeaponClass = UCharacterEquipmentComponent::GetWeaponClassByAmmoType(AmmoType);
-//		if (WeaponClass)
-//			OnAmmoRemovedEvent.Broadcast(WeaponClass, Count, GetCurrentAmmoByWeaponType(WeaponClass));
-//
-//		if (UpdateInventoryEvent.IsBound())
-//			UpdateInventoryEvent.Broadcast(WeaponID, Count, false);
-//	}
-//}
 
 void UCharacterEquipmentComponent::ReloadCurrentWeapon()
 {
 	check(IsValid(CurrentEquippedWeapon));
-	uint32 Index = (uint32)CurrentEquippedWeapon->GetAmmoType();
 	
-	if (AmmunitionArray.IsValidIndex(Index) && AmmunitionArray[Index] > 0)
-	{
+	if (GetAmmo(CurrentEquippedWeapon->GetAmmoType()))
 		CurrentEquippedWeapon->StartReload();
-	}
 }
 
 void UCharacterEquipmentComponent::Srv_EquipItemInSlot_Implementation(EEquipmentSlots Slot)
@@ -639,21 +596,6 @@ void UCharacterEquipmentComponent::EquipNextItem()
 	if (CurrentSlotIndex == NextSlotIndex) return;
 	EquipItemSlot((EEquipmentSlots)NextSlotIndex);
 }
-
-//void UCharacterEquipmentComponent::EquipSideArm()
-//{
-//	EquipItemSlot(EEquipmentSlots::SideArm);
-//}
-//
-//void UCharacterEquipmentComponent::EquipPrimaryWeapon()
-//{
-//	EquipItemSlot(EEquipmentSlots::PrimaryWeapon);
-//}
-//
-//void UCharacterEquipmentComponent::EquipSecondaryWeapon()
-//{
-//	EquipItemSlot(EEquipmentSlots::SecondaryWeapon);
-//}
 
 void UCharacterEquipmentComponent::EquipPreviousItem()
 {

@@ -14,7 +14,6 @@ class AMeleeWeaponItem;
 class AEquipableItem;
 class APickableItem;
 
-typedef TArray<uint32, TInlineAllocator<(uint32)EAmmunitionType::MAX>> TAmmunitionArray; // keeep current ammos
 typedef TArray<class AEquipableItem*, TInlineAllocator<(uint32)EEquipmentSlots::MAX>> TItemsArray; // keep current weapon
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnCurrentWeaponAmmoChangedEvent, int32, int32);
@@ -87,7 +86,8 @@ public:
 	}
 	const TArray<AEquipableItem*> GetItems() const { return ItemsArray; };
 	
-	int32 GetAmmo(EAmmunitionType AmmoType) const { return AmmunitionArray.IsValidIndex((uint32)AmmoType) ? AmmunitionArray[(uint32)AmmoType] : 666; };
+	int32 GetAmmo(EAmmunitionType AmmoType) const;
+
 	EAmmunitionType GetAmmoTypeByWeaponType(TSubclassOf<AEquipableItem> WeaponClass) const;
 	void AddAmmo(EAmmunitionType AmmoType, uint32 Count, FName WeaponID);
 	//void RemoveAmmo(EAmmunitionType AmmoType, uint32 Count, TSubclassOf<APickableItem> PickableActor);
@@ -119,11 +119,7 @@ private:
 	// rep funcs
 	UFUNCTION(Server, Reliable)
 	void Srv_EquipItemInSlot(EEquipmentSlots Slot);
-	
-	// total ammo for each EAmmunitionType
-	UPROPERTY(Replicated)
-	TArray<uint32> AmmunitionArray; // TAmmunitionArray cannot be replicated
-	
+		
 	UPROPERTY(ReplicatedUsing=OnRep_ItemsArray)
 	TArray<AEquipableItem*> ItemsArray;
 

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "HomeWorkTypes.h"
 #include "InventoryViewWidget.generated.h"
 
 struct FInventorySlot;
@@ -17,6 +18,7 @@ class HOMEWORK1_API UInventoryViewWidget : public UUserWidget
 	
 public:
 	void InitViewWidget(UCharacterEquipmentComponent* EquipComp, TArray<FInventorySlot>& InvSlots);
+	int32 GetAmmo(EAmmunitionType AmmoType) const;
 
 protected:
 	UPROPERTY(meta = (BindWidget))

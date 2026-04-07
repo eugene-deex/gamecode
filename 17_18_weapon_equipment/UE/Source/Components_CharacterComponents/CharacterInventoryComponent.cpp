@@ -113,8 +113,16 @@ bool UCharacterInventoryComponent::Remove(FName ID)
 	return true;
 }
 
+int32 UCharacterInventoryComponent::GetAmmo(EAmmunitionType AmmoType) const
+{
+	return InvWidget ? InvWidget->GetAmmo(AmmoType) : -1;
+}
+
 void FInventorySlot::ClearSlot()
 {
+	if (Item)
+		Item->ConditionalBeginDestroy();
+
 	Item = nullptr;
 	Count = 0;
 	UpdateSlotState();

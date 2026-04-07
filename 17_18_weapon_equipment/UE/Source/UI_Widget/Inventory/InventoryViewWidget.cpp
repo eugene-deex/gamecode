@@ -17,6 +17,31 @@ void UInventoryViewWidget::InitViewWidget(UCharacterEquipmentComponent* EquipCom
 		EquipComp->UpdateInventoryEvent.AddUFunction(this, FName("UpdateInventory"));
 }
 
+int32 UInventoryViewWidget::GetAmmo(EAmmunitionType AmmoType) const
+{
+	int32 AmmoTotal = 0;
+
+	const int32 ChildrenCount = GridPanelItemSlots->GetChildrenCount();
+	if (!ChildrenCount)
+		return AmmoTotal;
+
+	for (int32 i = ChildrenCount - 1; i >= 0; --i)
+	{
+		UWidget* Child = GridPanelItemSlots->GetChildAt(i);
+		if (Child == nullptr || !IsValid(Child))
+			continue;
+
+		UInventorySlotWidget* EquipmentSlot = Cast<UInventorySlotWidget>(Child);
+		if (!EquipmentSlot || !EquipmentSlot->IsValidLowLevelFast())
+			continue;
+
+		if (EquipmentSlot->GetAmmoType() == AmmoType)
+			AmmoTotal += EquipmentSlot->GetCount();
+	}
+
+	return AmmoTotal;
+}
+
 void UInventoryViewWidget::UpdateInventory(FName WeaponID, int32 AmmoType, int32 OpCount, bool bIsAdding)
 {
 	int32 Count = OpCount;
